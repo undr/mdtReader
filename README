@@ -1,0 +1,38 @@
+
+  MdtReader.open("/path/to/mdt/file") do |file|
+    file.each do |frame| 
+      p frame[:name]
+      p frame[:GUID]
+      maindata = frame.raw_data
+      array = frame.data_as_array
+    end
+  end
+  
+  MdtReader.open("/path/to/mdt/file") do |file|
+    file.only(:scan) do |frame| 
+      p frame[:name]
+      p frame[:GUID]
+      maindata = frame.raw_data
+      array = frame.data_as_array
+    end
+  end
+
+  MdtReader.open("/path/to/mdt/file") do |file|
+    file.frame(1) do |frame|
+      p frame[:name]
+      p frame[:GUID]
+      maindata = frame.raw_data
+      array = frame.data_as_array
+    end
+  end
+  
+  file = MdtReader.open("/path/to/mdt/file")
+  frame = file.frame(1)
+  p frame[:name]
+  p frame[:GUID]
+  maindata = frame.raw_data
+  array = frame.data_as_array
+  file.close
+  
+  
+  
