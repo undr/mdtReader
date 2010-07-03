@@ -1,7 +1,7 @@
 module MdtReader
   class File
     def initialize(file)
-      @mdtstream = ::File.open(file, File::RDONLY)
+      @mdtstream = ::File.open(file, ::File::RDONLY)
       init
     end
     
@@ -21,6 +21,10 @@ module MdtReader
       @frames_quantity
     end
     
+    def frames
+      @frames
+    end
+    
     def frame(index)
       @frames[index]
     end
@@ -33,10 +37,10 @@ module MdtReader
     def init
       @mdtstream.seek(12, IO::SEEK_SET)
       @frames = []
-      @frames_quantity = @mdtstream.read(2).unpack("i")
+      @frames_quantity = @mdtstream.read(2).unpack("i").first
       offset = 33
       while(index < frames_quantity) do
-        frame = Frame.new(offset, @mdtstream)
+        frame = Frame.create(offset, @mdtstream)
         @frames << frame
         offset += frame.length
       end
