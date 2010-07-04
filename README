@@ -4,7 +4,7 @@
       p frame[:name]
       p frame[:GUID]
       maindata = frame.raw_data
-      array = frame.data_as_array
+      array = frame.data
     end
   end
   
@@ -13,7 +13,7 @@
       p frame[:name]
       p frame[:GUID]
       maindata = frame.raw_data
-      array = frame.data_as_array
+      array = frame.data
     end
   end
 
@@ -22,7 +22,7 @@
       p frame[:name]
       p frame[:GUID]
       maindata = frame.raw_data
-      array = frame.data_as_array
+      array = frame.data
     end
   end
   
@@ -31,7 +31,7 @@
   p frame[:name]
   p frame[:GUID]
   maindata = frame.raw_data
-  array = frame.data_as_array
+  array = frame.data
   file.close
   
   

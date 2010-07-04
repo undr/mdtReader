@@ -94,7 +94,16 @@ module MdtReader
     
     def raw_data
       main_data_offset = body_offset + get_header_value(:vars_size) + 8
-      rewind_to(main_data_offset).read(image_width*image_height*2)
+      rewind_to(main_data_offset).read(get_param('mainData.width')*get_param('mainData.height')*2)
+    end
+    
+    def data
+      result = raw_data.unpack("v*")
+      max, min = result.max, result.min
+      max_minus_min = max - min
+      result.collect do |value|
+        (((value - min) * 256) / max_minus_min).round
+      end
     end
     
     private
