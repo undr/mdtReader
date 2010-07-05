@@ -1,7 +1,7 @@
 module MdtReader
   class Frame
     TYPES = {0 => :scan, 1 => :spectroscopy, 201 =>:curves, 106 => :mda}.freeze
-    HEADER = {:lenght => {:offset => 0, :bytes => 4, :type => "V"},
+    HEADER = {:length => {:offset => 0, :bytes => 4, :type => "V"},
               :type => {:offset => 4, :bytes => 2, :type => "v"},
               :year => {:offset => 8, :bytes => 2, :type => "v"},
               :month => {:offset => 10, :bytes => 2, :type => "v"},
@@ -11,12 +11,6 @@ module MdtReader
               :second => {:offset => 18, :bytes => 2, :type => "v"},
               :vars_size => {:offset => 20, :bytes => 2, :type => "v"}
               }.freeze
-    def self.create(offset, stream)
-      stream.seek(offset + HEADER[:type][:offset], IO::SEEK_SET)
-      type ||= TYPES[stream.read(HEADER[:type][:bytes]).unpack(HEADER[:type][:type]).first]
-      klass = const_get("#{type.to_s.capitalize}")
-      klass.new(offset, stream)
-    end 
     
     def initialize(offset, stream)
       @stream = stream
@@ -41,21 +35,29 @@ module MdtReader
       @stream
     end
     
-    def rewind_to_boby_pos(pos=0)
+    def rewind_to_body_pos(pos=0)
       @stream.seek(body_offset+pos, IO::SEEK_SET)
       @stream
     end
     
     def get_header_value(name)
-      rewind_to(HEADER[name][:offset]).read(HEADER[name][:bytes]).unpack(HEADER[name][:type]).first
+      rewind_to(HEADER[name][:offset]).read(HEADER[name][:bytes]).unpack(HEADER[name][:type]).first if HEADER[name]
     end
     
     def body_offset
       @offset + 22
     end
+    
+    protected
+    def get_param(name)
+      raise StandardError
+    end
   end
   
   class ScanAndSpectroscopy < Frame
+    class << self
+      attr_accessor :properties, :maindata
+    end
     AXISSCALE = {'axisScale.xOffset' => {:offset => 0,  :bytes => 4, :type => "e"},
                   'axisScale.yOffset' => {:offset => 10, :bytes => 4, :type => "e"},
                   'axisScale.zOffset' => {:offset => 20, :bytes => 4, :type => "e"},
@@ -68,47 +70,83 @@ module MdtReader
                   }.freeze
 
     def property_exists?(name)
-      PROPERTIES.include?(name) || MAINDATA.include?(name) || AXISSCALE.include?(name)
+      self.class.properties.include?(name) || self.class.maindata.include?(name) || AXISSCALE.include?(name)
     end
     
-    private
+    protected
+    def vars_size
+      @vars_size ||= get_header_value(:vars_size)
+    end
+    
     def get_param(name)
-      return rewind_to_boby_pos(AXISSCALE[name][:offset]).read(AXISSCALE[name][:bytes]).unpack(AXISSCALE[name][:type]).first if AXISSCALE.include?(name)
-      vars_offset = body_offset + 30
-      return rewind_to_boby_pos(vars_offset + PROPERTIES[name][:offset]).read(PROPERTIES[name][:bytes]).unpack(PROPERTIES[name][:type]).first if PROPERTIES.include?(name)
-      main_data_header_offset = body_offset + get_header_value(:vars_size)
-      return rewind_to(main_data_header_offset + MAINDATA[name][:offset]).read(MAINDATA[name][:bytes]).unpack(MAINDATA[name][:type]).first if MAINDATA.include?(name)
+      #debugger
+      return rewind_to_body_pos(AXISSCALE[name][:offset]).read(AXISSCALE[name][:bytes]).unpack(AXISSCALE[name][:type]).first if AXISSCALE.include?(name)
+      offset = body_offset + 30
+      return rewind_to_body_pos(offset + self.class.properties[name][:offset]).read(self.class.properties[name][:bytes]).unpack(self.class.properties[name][:type]).first if self.class.properties.include?(name)
+      offset = vars_size
+      return rewind_to_body_pos(offset + self.class.maindata[name][:offset]).read(self.class.maindata[name][:bytes]).unpack(self.class.maindata[name][:type]).first if self.class.maindata.include?(name)
       nil
     end
     
   end
   
   class Scan < ScanAndSpectroscopy
-    PROPERTIES = {}.freeze
-    MAINDATA = {'mainData.width'  => {:offset => 2, :bytes => 2, :type => "v"},
-                'mainData.height' => {:offset => 4, :bytes => 2, :type => "v"}
-                }.freeze
+    self.properties = {}
+    self.maindata =  {'mainData.width'  => {:offset => 2, :bytes => 2, :type => "v"},
+                      'mainData.height' => {:offset => 4, :bytes => 2, :type => "v"}
+                      }.freeze
     def type
       :scan
     end
     
     def raw_data
-      main_data_offset = body_offset + get_header_value(:vars_size) + 8
-      rewind_to(main_data_offset).read(get_param('mainData.width')*get_param('mainData.height')*2)
+      main_data_offset = vars_size + 8
+      size = get_param('mainData.width') * get_param('mainData.height') * 2
+      rewind_to_body_pos(main_data_offset).read(size)
     end
     
     def data
-      result = raw_data.unpack("v*")
+      result = raw_data.unpack("v*").collect do |value|
+        value -= 0x1_0000 if (value & 0x8000).nonzero?
+        value
+      end
       max, min = result.max, result.min
       max_minus_min = max - min
+      p "max = #{max}, min = #{min}"
       result.collect do |value|
         (((value - min) * 256) / max_minus_min).round
       end
     end
     
-    private
+    def to_png(palette=nil)
+      palette ||= Palette.new(PNG::Color.new(255, 255, 0), PNG::Color.new(128, 0, 111), PNG::Color.new(0, 255, 28))
+      width, height = get_param('mainData.width'), get_param('mainData.height')
+      canvas = PNG::Canvas.new(width, height)
+      data_pic = data
+      y, index = 0, 0
+      p data_pic[0...500]
+      while(y < height) do
+        x = 0
+        while(x < width) do
+          color = palette[data_pic[index]]
+          #p "#{index}=[#{color.r}, #{color.g}, #{color.b}]"
+          canvas.[]=(x, y, color)
+          index += 1
+          x += 1
+        end
+        y += 1
+      end
+      PNG.new canvas
+    end
+    
+    def save_as_png(filename)
+      to_png.save(filename)
+    end
+    
+    protected
     def get_param(name)
-      param = super.get_param(name)
+      #debugger
+      param = super(name)
       return param if param
       return image_width if name == "image.width"
       return image_height if name == "image.height"
@@ -145,14 +183,23 @@ module MdtReader
   end
   
   class Spectroscopy < ScanAndSpectroscopy
-    
-    PROPERTIES = {}.freeze
-    MAINDATA = {'mainData.width'  => {:offset => 2, :bytes => 2, :type => "v"},
-                'mainData.height' => {:offset => 4, :bytes => 2, :type => "v"}
-                }.freeze
-                
+    self.properties = {}
+    self.maindata =  {'mainData.width'  => {:offset => 2, :bytes => 2, :type => "v"},
+                      'mainData.height' => {:offset => 4, :bytes => 2, :type => "v"},
+                      'mainData.mode'   => {:offset => 0, :bytes => 2, :type => "v"},
+                      'mainData.points' => {:offset => 6, :bytes => 2, :type => "v"}
+                      }.freeze
+
     def type
       :spectroscopy
+    end
+    
+    def raw_data
+      
+    end
+    
+    def data
+      
     end
   end
   
@@ -177,6 +224,15 @@ module MdtReader
     private
     def get_param(name)
       
+    end
+  end
+  
+  class Frame
+    def self.create(offset, stream)
+      stream.seek(offset + HEADER[:type][:offset], IO::SEEK_SET)
+      type ||= TYPES[stream.read(HEADER[:type][:bytes]).unpack(HEADER[:type][:type]).first]
+      klass = MdtReader.const_get("#{type.to_s.capitalize}")
+      klass.new(offset, stream)
     end
   end
 end

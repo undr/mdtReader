@@ -1,3 +1,11 @@
+require "rubygems"
+
+require 'png'
+require "mdt_reader/file"
+require "mdt_reader/frame"
+require "mdt_reader/palette"
+require "ruby-debug"
+
 module MdtReader
   module_function
   
