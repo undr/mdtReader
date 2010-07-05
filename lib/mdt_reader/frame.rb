@@ -79,7 +79,6 @@ module MdtReader
     end
     
     def get_param(name)
-      #debugger
       return rewind_to_body_pos(AXISSCALE[name][:offset]).read(AXISSCALE[name][:bytes]).unpack(AXISSCALE[name][:type]).first if AXISSCALE.include?(name)
       offset = body_offset + 30
       return rewind_to_body_pos(offset + self.class.properties[name][:offset]).read(self.class.properties[name][:bytes]).unpack(self.class.properties[name][:type]).first if self.class.properties.include?(name)
@@ -112,7 +111,6 @@ module MdtReader
       end
       max, min = result.max, result.min
       max_minus_min = max - min
-      p "max = #{max}, min = #{min}"
       result.collect do |value|
         (((value - min) * 256) / max_minus_min).round
       end
@@ -124,12 +122,10 @@ module MdtReader
       canvas = PNG::Canvas.new(width, height)
       data_pic = data
       y, index = 0, 0
-      p data_pic[0...500]
       while(y < height) do
         x = 0
         while(x < width) do
           color = palette[data_pic[index]]
-          #p "#{index}=[#{color.r}, #{color.g}, #{color.b}]"
           canvas.[]=(x, y, color)
           index += 1
           x += 1
@@ -145,7 +141,6 @@ module MdtReader
     
     protected
     def get_param(name)
-      #debugger
       param = super(name)
       return param if param
       return image_width if name == "image.width"
