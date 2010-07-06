@@ -121,7 +121,7 @@ module MdtReader
     
     class Data < InternalBlock
       def raw
-        size = @scan['mainData.width'] * @scan['mainData.height'] * 2
+        size = @frame['mainData.width'] * @frame['mainData.height'] * 2
         rewind_to.read(size)
       end
       
@@ -240,13 +240,172 @@ module MdtReader
   
   class Mda < Frame
     
+    CALIBRATION_PARAMS = {'axisScale.xOffset' => {:index => 0,  :method => :offset},
+              'axisScale.yOffset' => {:index => 1, :method => :offset},
+              'axisScale.zOffset' => {:index => 2, :method => :offset},
+              'axisScale.xStep'   => {:index => 0,  :method => :step},
+              'axisScale.yStep'   => {:index => 1, :method => :step},
+              'axisScale.zStep'   => {:index => 2, :method => :step},
+              'axisScale.xUnit'   => {:index => 0,  :method => :unit},
+              'axisScale.yUnit'   => {:index => 1, :method => :unit},
+              'axisScale.zUnit'   => {:index => 2, :method => :unit},
+              'maindata.width'    => {:index => 0,  :method => :axis_size},
+              'maindata.height'   => {:index => 1, :method => :axis_size}
+              }.freeze
     def type
-      :mda
+      header.type
+    end
+    
+    def data
+      offset = 0
+      klass = MdtReader.const_get("#{type.to_s.capitalize}Data")
+      klass.new(self, offset, stream)
     end
     
     protected
     def get_param(name)
+      return get_calibration_param(name) if CALIBRATION_PARAMS.include?(name)
+      return ex_header.get_param(name) if ex_header.param_exists?(name)
+      return data.width if name == "image.width" && type == :scan
+      return data.height if name == "image.height" && type == :scan
+      nil
+    end
+    
+    def get_calibration_param(name)
+      return nil unless CALIBRATION_PARAMS.include?(name)
+      calibration = calibrations[CALIBRATION_PARAMS[name][:index]]
+      return calibration.send(CALIBRATION_PARAMS[name][:method]) if calibration
+      nil
+    end
+    
+    def ex_header
+      @ex_header ||= ExHeader.new(self, body_offset, @stream)
+    end
+    
+    def header
+      @header ||= Header.new(self, ex_header.get_field(:header_size), @stream)
+    end
+    
+    def calibrations
+      @calibrations ||= build_calibrations
+    end
+    
+    def build_calibrations
+      cals = type == :scan ? [:x, :y, :z] : [:x, :y]
+      offset = ex_header.get_field(:size) + 8 + header.get_field(:size)
+      cals.collect do |c|
+        c = Calibration.new(self, offset, @stream)
+        offset += c.size
+        c
+      end
+    end
+
+    class ExHeader < InternalBlock
+      FIELDS = {:structure_size => {:bytes => 0, :size => 4, :type => "e"},
+                   :size => {:offset => 4, :bytes => 4, :type => "e"},
+                   :name_size => {:offset => 44, :bytes => 4, :type => "e"},
+                   :comment_size => {:offset => 48, :bytes => 4, :type => "e"},
+                   :dataOffset => {:offset => 68, :bytes => 4, :type => "e"},
+                   :dataSize => {:offset => 72, :bytes => 4, :type => "e"}
+                   }.freeze
+      MDTHEADER_VALUES = {:name => :name, :comment => :comment, :GUID => :guid, :mesGUID => :mes_guid}.freeze
       
+      def param_exists?(name)
+        MDTHEADER_VALUES.include?(name)
+      end
+
+      def get_param(name)
+        if MDTHEADER_VALUES.include?(name)
+          send(MDTHEADER_VALUES[name])
+        end
+      end
+      
+      def get_field(name)
+        rewind_to(FIELDS[name][:offset]).read(FIELDS[name][:bytes]).unpack(FIELDS[name][:type]).first if FIELDS.include?(name)
+      end
+      
+      def guid
+        #todo: Implement this method
+        guid_struct = rewind_to(8).read(16).unpack("")
+        @guid ||= ""
+      end
+
+      def mes_guid
+        #todo: Implement this method
+        guid_struct = rewind_to(24).read(16).unpack("")
+        @mes_guid ||= ""
+      end
+      
+      def name
+        size = get_field(:name_size)
+        @name ||= rewind_to(structure_size).read(size)
+      end
+      
+      def comment
+        size = get_field(:comment_size)
+        pos = get_field(:name_size) + structure_size
+        @comment ||= rewind_to(pos).read(size)
+      end
+      
+      def structure_size
+        @structure_size ||= get_field(:structure_size)
+      end
+    end
+    
+    class Header < InternalBlock
+      FIELDS = {:total_size => {:bytes => 0, :size => 4, :type => "e"},
+                   :size => {:offset => 4, :bytes => 4, :type => "e"},
+                     #todo: Исправить
+                   :measurands => {:offset => 8, :bytes => 8, :type => ""},
+                   :measurand_size => {:offset => 16, :bytes => 4, :type => "e"},
+                   :dimensions_count => {:offset => 20, :bytes => 4, :type => "e"},
+                   :measurands_count => {:offset => 24, :bytes => 4, :type => "e"}
+                   }.freeze
+      
+      def type
+        if dimensions == 1 && measurands == 1
+          :spectroscopy
+        elsif dimensions == 2 && measurands == 1
+          :scan
+        else
+          :unknown
+        end
+      end
+      
+      def measurands_count
+        @measurands_count ||= get_field(:measurands_count)
+      end
+      
+      def dimensions_count
+        @dimensions_count ||= get_field(:dimensions_count)
+      end
+      
+      def calibrations_count
+        measurands_count + dimensions_count
+      end
+      
+      def get_field(name)
+        rewind_to(FIELDS[name][:offset]).read(FIELDS[name][:bytes]).unpack(FIELDS[name][:type]).first if FIELDS.include?(name)
+      end
+    end
+    
+    class Calibration < InternalBlock
+      FIELDS = {:name => {},
+                :unit_name => {},
+                :offset => {},
+                :step => {},
+                :min_index => {},
+                :max_index => {},
+                :data_type => {},
+                }.freeze
+      
+      def get_field(name)
+        rewind_to(FIELDS[name][:offset]).read(FIELDS[name][:bytes]).unpack(FIELDS[name][:type]).first if FIELDS.include?(name)
+      end
+      
+      def axis_size
+        @axis_size ||= (get_field(:max_index) - get_field(:min_index))
+      end
     end
   end
   
