@@ -107,7 +107,7 @@ module MdtReader
     end
     
     def data
-      @data ||= Data.new(self, vars_size + 8, @stream)
+      @data ||= Data.new(self, body_offset + vars_size + 8, @stream)
     end
     
     protected
@@ -126,12 +126,12 @@ module MdtReader
       end
       
       def [](index)
-        data_init unless data_init?
+        init unless init?
         @data[index]
       end
       
       def to_a
-        data_init unless data_init?
+        init unless init?
         @data
       end
       
@@ -143,6 +143,7 @@ module MdtReader
         while(y < height) do
           x = 0
           while(x < width) do
+            #p self[index]
             color = palette[self[index]]
             canvas.[]=(x, y, color)
             index += 1
@@ -191,10 +192,10 @@ module MdtReader
           value -= 0x1_0000 if (value & 0x8000).nonzero?
           value
         end
-        max, min = result.max, result.min
+        max, min = @data.max, @data.min
         max_minus_min = max - min
         @init = true
-        @data.collect do |value|
+        @data.collect! do |value|
           (((value - min) * 256) / max_minus_min).round
         end
       end
