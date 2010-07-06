@@ -3,8 +3,10 @@
     file.each do |frame| 
       p frame[:name]
       p frame[:GUID]
-      maindata = frame.raw_data
-      array = frame.data
+      maindata = frame.data.raw
+      p frame.data.raw.to_png.to_blob
+      frame.data.raw.save_to_png("/path/to/png)
+      array = frame.data.to_a
     end
   end
   
@@ -12,8 +14,10 @@
     file.only(:scan) do |frame| 
       p frame[:name]
       p frame[:GUID]
-      maindata = frame.raw_data
-      array = frame.data
+      maindata = frame.data.raw
+      p frame.data.raw.to_png.to_blob
+      frame.data.raw.save_to_png("/path/to/png)
+      array = frame.data.to_a
     end
   end
 
@@ -21,8 +25,10 @@
     file.frame(1) do |frame|
       p frame[:name]
       p frame[:GUID]
-      maindata = frame.raw_data
-      array = frame.data
+      maindata = frame.data.raw
+      p frame.data.raw.to_png.to_blob
+      frame.data.raw.save_to_png("/path/to/png)
+      array = frame.data.to_a
     end
   end
   
@@ -30,8 +36,10 @@
   frame = file.frame(1)
   p frame[:name]
   p frame[:GUID]
-  maindata = frame.raw_data
-  array = frame.data
+  maindata = frame.data.raw
+  p frame.data.raw.to_png.to_blob
+  frame.data.raw.save_to_png("/path/to/png)
+  array = frame.data.to_a
   file.close
   
   

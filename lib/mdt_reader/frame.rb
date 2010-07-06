@@ -1,5 +1,20 @@
 module MdtReader
+  module Rewindable
+    def rewind_to(pos=0)
+      @stream.seek(@offset + pos, IO::SEEK_SET)
+      @stream
+    end
+  end
+  
+  class InternalBlock
+    include Rewindable
+    def initialize(frame, offset, stream)
+      @offset, @frame, @stream = offset, frame, stream
+    end
+  end
+  
   class Frame
+    include Rewindable
     TYPES = {0 => :scan, 1 => :spectroscopy, 201 =>:curves, 106 => :mda}.freeze
     HEADER = {:length => {:offset => 0, :bytes => 4, :type => "V"},
               :type => {:offset => 4, :bytes => 2, :type => "v"},
@@ -29,12 +44,7 @@ module MdtReader
       get_param(name)
     end
     
-    private
-    def rewind_to(pos=0)
-      @stream.seek(@offset+pos, IO::SEEK_SET)
-      @stream
-    end
-    
+    protected
     def rewind_to_body_pos(pos=0)
       @stream.seek(body_offset+pos, IO::SEEK_SET)
       @stream
@@ -48,7 +58,6 @@ module MdtReader
       @offset + 22
     end
     
-    protected
     def get_param(name)
       raise StandardError
     end
@@ -72,7 +81,7 @@ module MdtReader
     def property_exists?(name)
       self.class.properties.include?(name) || self.class.maindata.include?(name) || AXISSCALE.include?(name)
     end
-    
+
     protected
     def vars_size
       @vars_size ||= get_header_value(:vars_size)
@@ -86,7 +95,6 @@ module MdtReader
       return rewind_to_body_pos(offset + self.class.maindata[name][:offset]).read(self.class.maindata[name][:bytes]).unpack(self.class.maindata[name][:type]).first if self.class.maindata.include?(name)
       nil
     end
-    
   end
   
   class Scan < ScanAndSpectroscopy
@@ -98,81 +106,101 @@ module MdtReader
       :scan
     end
     
-    def raw_data
-      main_data_offset = vars_size + 8
-      size = get_param('mainData.width') * get_param('mainData.height') * 2
-      rewind_to_body_pos(main_data_offset).read(size)
-    end
-    
     def data
-      result = raw_data.unpack("v*").collect do |value|
-        value -= 0x1_0000 if (value & 0x8000).nonzero?
-        value
-      end
-      max, min = result.max, result.min
-      max_minus_min = max - min
-      result.collect do |value|
-        (((value - min) * 256) / max_minus_min).round
-      end
-    end
-    
-    def to_png(palette=nil)
-      palette ||= Palette.new(PNG::Color.new(255, 255, 0), PNG::Color.new(128, 0, 111), PNG::Color.new(0, 255, 28))
-      width, height = get_param('mainData.width'), get_param('mainData.height')
-      canvas = PNG::Canvas.new(width, height)
-      data_pic = data
-      y, index = 0, 0
-      while(y < height) do
-        x = 0
-        while(x < width) do
-          color = palette[data_pic[index]]
-          canvas.[]=(x, y, color)
-          index += 1
-          x += 1
-        end
-        y += 1
-      end
-      PNG.new canvas
-    end
-    
-    def save_as_png(filename)
-      to_png.save(filename)
+      @data ||= Data.new(self, vars_size + 8, @stream)
     end
     
     protected
     def get_param(name)
       param = super(name)
       return param if param
-      return image_width if name == "image.width"
-      return image_height if name == "image.height"
+      return data.width if name == "image.width"
+      return data.height if name == "image.height"
       nil
     end
     
-    def image_width
-      @image_width ||= calculate_image_width
-    end
-    
-    def image_height
-      @image_height ||= calculate_image_height
-    end
-    
-    def calculate_image_width
-      x_step, y_step = get_param('axisScale.xStep'), get_param('axisScale.yStep')
-      ratio = x_step / y_step
-      if x_step < y_step
-        get_param('mainData.width') * ratio
-      else
-        get_param('mainData.width')
+    class Data < InternalBlock
+      def raw
+        size = @scan['mainData.width'] * @scan['mainData.height'] * 2
+        rewind_to.read(size)
       end
-    end
-    
-    def calculate_image_height
-      x_step, y_step = get_param('axisScale.xStep'), get_param('axisScale.yStep')
-      ratio = x_step / y_step
-      if x_step > y_step
-        get_param('mainData.height') * ratio
-      else
-        get_param('mainData.height')
+      
+      def [](index)
+        data_init unless data_init?
+        @data[index]
+      end
+      
+      def to_a
+        data_init unless data_init?
+        @data
+      end
+      
+      def to_png(palette=nil)
+        palette ||= Palette.new(PNG::Color.new(255, 255, 0), PNG::Color.new(128, 0, 111), PNG::Color.new(0, 255, 28))
+        width, height = @frame['mainData.width'], @frame['mainData.height']
+        canvas = PNG::Canvas.new(width, height)
+        y, index = 0, 0
+        while(y < height) do
+          x = 0
+          while(x < width) do
+            color = palette[self[index]]
+            canvas.[]=(x, y, color)
+            index += 1
+            x += 1
+          end
+          y += 1
+        end
+        PNG.new canvas
+      end
+      
+      def save_as_png(filename)
+        to_png.save(filename)
+      end
+      
+      def width
+        @width ||= calculate_width
+      end
+              
+      def height
+        @height ||= calculate_height
+      end
+            
+      protected  
+      def calculate_width
+        x_step, y_step = @frame['axisScale.xStep'], @frame['axisScale.yStep']
+        ratio = x_step / y_step
+        if x_step < y_step
+          @frame['mainData.width'] * ratio
+        else
+          @frame['mainData.width']
+        end
+      end
+              
+      def calculate_height
+        x_step, y_step = @frame['axisScale.xStep'], @frame['axisScale.yStep']
+        ratio = x_step / y_step
+        if x_step > y_step
+          @frame['mainData.height'] * ratio
+        else
+          @frame['mainData.height']
+        end
+      end      
+      
+      def init
+        @data = raw.unpack("v*").collect do |value|
+          value -= 0x1_0000 if (value & 0x8000).nonzero?
+          value
+        end
+        max, min = result.max, result.min
+        max_minus_min = max - min
+        @init = true
+        @data.collect do |value|
+          (((value - min) * 256) / max_minus_min).round
+        end
+      end
+      
+      def init?
+        @init ||= false
       end
     end
   end
@@ -204,7 +232,7 @@ module MdtReader
       :curves
     end  
     
-    private
+    protected
     def get_param(name)
       
     end
@@ -216,7 +244,7 @@ module MdtReader
       :mda
     end
     
-    private
+    protected
     def get_param(name)
       
     end
