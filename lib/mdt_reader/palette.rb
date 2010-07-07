@@ -10,9 +10,9 @@ module MdtReader
     def [](index)
       sector = index >= 256 ? @last_sector : (index / @sector_length).floor
       offset = index - (sector * @sector_length)
-      r = self.class.calculate(@colors[sector].r, @colors[sector + 1].r, offset, @sector_length)
-      g = self.class.calculate(@colors[sector].g, @colors[sector + 1].g, offset, @sector_length)
-      b = self.class.calculate(@colors[sector].b, @colors[sector + 1].b, offset, @sector_length)
+      r = calculate(@colors[sector].r, @colors[sector + 1].r, offset, @sector_length)
+      g = calculate(@colors[sector].g, @colors[sector + 1].g, offset, @sector_length)
+      b = calculate(@colors[sector].b, @colors[sector + 1].b, offset, @sector_length)
       PNG::Color.new(r, g, b)
     end
     
@@ -27,11 +27,35 @@ module MdtReader
           x += 1
         end
         y += 1
-     end
+      end
   		PNG.new(canvas).save(options[:filename])
     end
-    
-    def self.calculate(start_color, end_color, index, length=256)
+  end
+end
+module MdtReader
+  class Palette
+    require 'inline'
+
+    inline do |builder|
+      builder.c <<-EOC
+VALUE 
+calculate(VALUE start_color, VALUE end_color, VALUE index, VALUE length) 
+{
+  double result, indexDouble, lengthDouble, startColorDouble, endColorDouble;
+  
+  startColorDouble =  (double)FIX2LONG(start_color);
+  endColorDouble =    (double)FIX2LONG(end_color);
+  indexDouble =       (double)FIX2LONG(index);
+  lengthDouble =      (double)FIX2LONG(length);
+  
+  result = startColorDouble + (endColorDouble - startColorDouble) * (indexDouble / lengthDouble);
+  return rb_float_new(result);
+}
+EOC
+    end
+  rescue => e
+    p e
+    def calculate(start_color, end_color, index, length=256)
       start_color + (end_color - start_color) * (index.to_f / length);
     end
   end
