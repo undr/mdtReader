@@ -54,7 +54,6 @@ calculate(VALUE start_color, VALUE end_color, VALUE index, VALUE length)
 EOC
     end
   rescue => e
-    p e
     def calculate(start_color, end_color, index, length=256)
       start_color + (end_color - start_color) * (index.to_f / length);
     end
