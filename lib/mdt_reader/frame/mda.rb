@@ -82,15 +82,11 @@ module MdtReader
         end
       
         def guid
-          #todo: Implement this method
-          guid_struct = rewind_to(8).read(16).unpack("")
-          @guid ||= ""
+          @guid ||= Guid.new(rewind_to(8).read(16).unpack(""))
         end
 
         def mes_guid
-          #todo: Implement this method
-          guid_struct = rewind_to(24).read(16).unpack("")
-          @mes_guid ||= ""
+          @mes_guid ||= Guid.new(rewind_to(24).read(16).unpack(""))
         end
       
         def name
