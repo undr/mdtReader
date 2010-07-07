@@ -59,7 +59,7 @@ module MdtReader
       while(index < frames_quantity) do
         frame = Frame.create(offset, @mdtstream)
         @frames << frame
-        offset += frame.length
+        offset += frame.size
         index += 1
       end
     end
