@@ -2,6 +2,7 @@ require "rubygems"
 
 require 'png'
 require "mdt_reader/file"
+require "mdt_reader/guid"
 require "mdt_reader/frame/rewindable"
 require "mdt_reader/frame/internal_block"
 require "mdt_reader/frame/scan_data"

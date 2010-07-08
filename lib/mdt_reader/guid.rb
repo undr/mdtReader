@@ -1,16 +1,16 @@
 module MdtReader
   class Guid
     def initialize(bytes)
-      raise ArgumentError, "Invalid GUID raw bytes, length must be 16 bytes" unless bytes.length == 16
+      raise ArgumentError, "Invalid GUID raw bytes, length must be 16 bytes" unless bytes.length == 11
       @bytes = bytes
     end
     
     def hexdigest
-      @bytes.unpack("h*").first
+      @bytes.collect {|num| num.to_s(16) }.join
     end
 
     def to_s
-      @bytes.unpack("h8 h4 h4 h4 h12").join "-"
+      hexdigest
     end
 
     def inspect
@@ -19,11 +19,6 @@ module MdtReader
 
     def raw
       @bytes
-    end
-
-    def self.from_s(s)
-      raise ArgumentError, "Invalid GUID hexstring" unless s =~ /\A[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}\z/i
-      Guid.new([s.gsub(/[^0-9a-f]+/i, '')].pack("h*"))
     end
 
     def ==(other)
