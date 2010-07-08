@@ -21,6 +21,8 @@ module MdtReader
                    4  => {:size => 4, :type => "L"},
                    -8 => {:size => 8, :type => "Q"},
                    8  => {:size => 8, :type => "q"},
+                   -(4 + 23 * 256) => {:size => 4, :type => "f"},
+                   -(8 + 52 * 256) => {:size => 8, :type => "d"}
                    }.freeze          
       
       def type
@@ -54,7 +56,6 @@ module MdtReader
       end
     
       def mda_header
-        p body_offset + ex_mda_header.size
         @mda_header ||= MdaHeader.new(self, body_offset + ex_mda_header.size, @stream)
       end
     
@@ -95,7 +96,7 @@ module MdtReader
         end
         
         def size
-          structure_size + name_size + comment_size + spec_size + view_info_size + source_info_size + var_size
+          structure_size + name_size + comment_size + spec_size + view_info_size + source_info_size
         end
         
         def get_param(name)
@@ -133,19 +134,18 @@ module MdtReader
         build_field_method :measurands_count,     24, 4, "l"
         
         def type
-          p "dimensions_count = #{dimensions_count}"
-          p "measurands_count = #{measurands_count}"
           if dimensions_count == 1 && measurands_count == 1
             :spectroscopy
           elsif dimensions_count == 2 && measurands_count == 1
             :scan
           else
-            :unknown
+            raise NotImplementedError, "types of frames distinct from spectroscopy or scan not implemented"
           end
         end
       end
     
       class Calibration < InternalBlock
+        build_field_method :size,           0,  4, "l"
         build_field_method :structure_size, 4,  4, "l"
         build_field_method :name_size,      8,  4, "l"
         build_field_method :comment_size,   12, 4, "l"
@@ -157,15 +157,17 @@ module MdtReader
         build_field_method :data_type,      76, 4, "l"
 
         def axis_size
-          @axis_size ||= (max_index - min_index)
+          @axis_size ||= (max_index - min_index + 1)
         end
         
         def name
-          @name ||= rewind_to(structure_size).read(name_size)
+          size = name_size
+          @name ||= rewind_to(structure_size + 8).read(size)
         end
         
         def unit_name
-          @unit_name ||= rewind_to(structure_size + name_size + comment_size).read(unit_name_size)
+          size = unit_name_size
+          @unit_name ||= rewind_to(structure_size + 8 + name_size + comment_size).read(size)
         end
       end
       

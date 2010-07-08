@@ -1,6 +1,6 @@
 require "rubygems"
 
-require 'png'
+#require 'png'
 require "mdt_reader/file"
 require "mdt_reader/guid"
 require "mdt_reader/frame/rewindable"
