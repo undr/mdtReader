@@ -46,15 +46,16 @@ module MdtReader
     end
 
     class Header < InternalBlock
-      build_field_method :size,      0,  4, "V"
-      build_field_method :type,      4,  2, "v"
-      build_field_method :year,      8,  2, "v"
-      build_field_method :month,     10, 2, "v"
-      build_field_method :day,       12, 2, "v"
-      build_field_method :hour,      14, 2, "v"
-      build_field_method :minute,    16, 2, "v"
-      build_field_method :second,    18, 2, "v"
-      build_field_method :vars_size, 20, 2, "v"
+      build_field_method :size,      0,  4, "l"
+      build_field_method :type,      4,  2, "s"
+      build_field_method :h_ver0,    6,  1, "c"
+      build_field_method :year,      8,  2, "S"
+      build_field_method :month,     10, 2, "S"
+      build_field_method :day,       12, 2, "S"
+      build_field_method :hour,      14, 2, "S"
+      build_field_method :minute,    16, 2, "S"
+      build_field_method :second,    18, 2, "S"
+      build_field_method :vars_size, 20, 2, "S"
     end
   end
 end

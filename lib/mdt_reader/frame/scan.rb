@@ -35,7 +35,7 @@ module MdtReader
         build_field_method :height, 2, 2, "v"        
       end
       
-      class Data < ScanData
+      class Data < ScanDataBase
 
       end
     end

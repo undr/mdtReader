@@ -30,9 +30,9 @@ module MdtReader
       end
     
       def data
-        #klass = MdtReader.const_get("#{type.to_s.capitalize}Data")
-        #klass.new(self, body_offset + data_offset, @stream, DATATYPES[measurand.data_type])
-        Data.new(self, body_offset + data_offset, @stream, DATATYPES[measurand.data_type])
+        klass = self.class.const_get("#{type.to_s.capitalize}Data")
+        klass.new(self, ex_mda_header.data_offset, @stream, DATATYPES[measurand.data_type])
+        #Data.new(self, ex_mda_header.data_offset, @stream, DATATYPES[measurand.data_type])
       end
     
       protected
@@ -89,7 +89,7 @@ module MdtReader
         build_field_method :data_offset,      68, 4, "l" #int
         build_field_method :data_size,        72, 4, "l" #int
 
-        MDTHEADER_VALUES = {:name => :name, :comment => :comment, :GUID => :guid, :mesGUID => :mes_guid}.freeze
+        MDTHEADER_VALUES = {'name' => :name, 'comment' => :comment, 'GUID' => :guid, 'mesGUID' => :mes_guid}.freeze
       
         def param_exists?(name)
           MDTHEADER_VALUES.include?(name)
@@ -114,14 +114,18 @@ module MdtReader
         end
       
         def name
-          size = name_size
-          @name ||= rewind_to(structure_size).read(size)
+          @name ||= begin
+            size = name_size
+            rewind_to(structure_size).read(size)
+          end
         end
       
         def comment
-          size = comment_size
-          pos = name_size + structure_size
-          @comment ||= rewind_to(pos).read(size)
+          @comment ||= begin
+            size = comment_size
+            pos = name_size + structure_size
+            rewind_to(pos).read(size)
+          end
         end
       end
     
@@ -161,17 +165,21 @@ module MdtReader
         end
         
         def name
-          size = name_size
-          @name ||= rewind_to(structure_size + 8).read(size)
+          @name ||= begin
+            size = name_size
+            rewind_to(structure_size + 8).read(size)
+          end
         end
         
         def unit_name
-          size = unit_name_size
-          @unit_name ||= rewind_to(structure_size + 8 + name_size + comment_size).read(size)
+          @unit_name ||= begin
+            size = unit_name_size
+            rewind_to(structure_size + 8 + name_size + comment_size).read(size)
+          end
         end
       end
       
-      class Data < ScanData
+      class ScanData < ScanDataBase
         def initialize(frame, offset, stream, datatype=nil)
           super(frame, offset, stream)
           @datatype = {:size => 2, :type => "s"}
@@ -179,7 +187,23 @@ module MdtReader
         end
         
         protected
-        def raw_size
+        def unit_size
+          @datatype[:size]
+        end
+        
+        def unpack
+          raw.unpack("#{@datatype[:type]}*")
+        end
+      end
+      class SpectroscopyData < SpectroscopyDataBase
+        def initialize(frame, offset, stream, datatype=nil)
+          super(frame, offset, stream)
+          @datatype = {:size => 2, :type => "s"}
+          @datatype = datatype if datatype
+        end
+        
+        protected
+        def unit_size
           @datatype[:size]
         end
         

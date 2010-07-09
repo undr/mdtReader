@@ -5,17 +5,19 @@ module MdtReader
       sectors = args.length - 1
       @last_sector = sectors - 1
       @sector_length = 256 / sectors
+      @color_cache = []
     end
     
     def [](index)
-      #todo: Вынести две нижние строчки в отдельный метод и написать его на C
-      sector = index >= 256 ? @last_sector : (index / @sector_length).floor
+      return @color_cache[index] if @color_cache[index]
+      #todo: Вынести две нижние строчки в отдельный метод и написать его на C (НЕ НАДО!!! Так получается медленней)
+      sector = index >= 256 ? @last_sector : (index / @sector_length)
       offset = index - (sector * @sector_length)
       r = calculate(@colors[sector].r, @colors[sector + 1].r, offset, @sector_length)
       g = calculate(@colors[sector].g, @colors[sector + 1].g, offset, @sector_length)
       b = calculate(@colors[sector].b, @colors[sector + 1].b, offset, @sector_length)
-      #todo: Кэшировать цвет
-      PNG::Color.new(r, g, b)
+      @color_cache[index] = PNG::Color.new(r, g, b)
+      @color_cache[index]
     end
     
     def to_png(options)
@@ -37,7 +39,6 @@ end
 module MdtReader
   class Palette
     require 'inline'
-
     inline do |builder|
       builder.c <<-EOC
 VALUE 
