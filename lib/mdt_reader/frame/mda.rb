@@ -143,7 +143,7 @@ module MdtReader
           elsif dimensions_count == 2 && measurands_count == 1
             :scan
           else
-            raise NotImplementedError, "types of frames distinct from spectroscopy or scan not implemented"
+            raise ::MdtReader::NotImplementedError, "types of frames distinct from spectroscopy or scan not implemented"
           end
         end
       end

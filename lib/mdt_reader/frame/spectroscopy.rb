@@ -3,7 +3,7 @@ module MdtReader
     class Spectroscopy < ScanAndSpectroscopy
       def initialize(offset, stream)
         super(offset, stream)
-        raise NotImplementedError, "Only one curve per frame has been allowed" unless get_param('maindata.mode') == 0
+        raise ::MdtReader::NotImplementedError, "Only one curve per frame has been allowed" unless get_param('maindata.mode') == 0
       end
       
       def type

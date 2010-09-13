@@ -31,6 +31,7 @@ module MdtReader
   def little_endian?
     [255].pack("S").unpack("v").first == 255
   end
+  class NotImplementedError < ::NotImplementedError;end
 end
 
 unless MdtReader.little_endian?

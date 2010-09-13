@@ -6,7 +6,9 @@ module MdtReader
         :curves
       end  
 
-      protected
+      def method_misssing(method, args)
+        raise ::MdtReader::NotImplementedError, "Type :curves is not allowed"
+      end
       
     end
   end

@@ -50,11 +50,12 @@ module MdtReader
       
       def ex_header
         @ex_header ||= begin
-          if header.h_ver0 > 6
-            ExHeader.new(self, body_offset + header.vars_size + 8 + data.size, @stream)
-          else
+          # Нужно уточнить как определять что дополнительные поля существуют
+          #if header.h_ver0 > 6
+            #ExHeader.new(self, body_offset + header.vars_size + 8 + data.size, @stream)
+          #else
             Nothing.new
-          end
+          #end
         end
       end
 
@@ -171,6 +172,9 @@ module MdtReader
       class Nothing
         def method_misssing(method, args)
           nil
+        end
+        def param_exists?(name)
+          false
         end
       end
     end

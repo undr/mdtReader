@@ -32,7 +32,7 @@ module MdtReader
       
       class Maindata < InternalBlock
         build_field_method :width, 2, 2, "v"
-        build_field_method :height, 2, 2, "v"        
+        build_field_method :height, 4, 2, "v"        
       end
       
       class Data < ScanDataBase

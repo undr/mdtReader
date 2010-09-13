@@ -7,25 +7,40 @@ module MdtReader
     
     def each_with_index
       @frames.each_with_index do |frame, index|
-        yield frame, index
+        begin
+          yield frame, index
+        rescue ::MdtReader::NotImplementedError => e
+        end
       end
     end
     
     def only_with_index(type)
+      type = [type] unless type.is_a?(Array)
       @frames.each_with_index do |frame, index|
-        yield frame, index if type == frame.type
+        begin
+          yield frame, index if type.include?(frame.type)
+        rescue ::MdtReader::NotImplementedError => e
+          pp e
+        end
       end
     end
     
     def each
       @frames.each do |frame|
-        yield frame
+        begin
+          yield frame
+        rescue ::MdtReader::NotImplementedError => e
+        end
       end
     end
     
     def only(type)
+      type = [type] unless type.is_a?(Array)
       @frames.each do |frame|
-        yield frame if type == frame.type
+        begin
+          yield frame if type.include?(frame.type)
+        rescue ::MdtReader::NotImplementedError => e
+        end
       end
     end
     
@@ -57,9 +72,14 @@ module MdtReader
       @frames_quantity = @mdtstream.read(2).unpack("v").first + 1
       offset, index = 33, 0
       while(index < frames_quantity) do
-        frame = Frame.create(offset, @mdtstream)
-        @frames << frame
-        offset += frame.size
+        begin
+          frame = Frame.create(offset, @mdtstream)
+          @frames << frame
+        rescue ::MdtReader::NotImplementedError => e
+        end
+        @mdtstream.seek(offset, IO::SEEK_SET)
+        size = @mdtstream.read(4).unpack("l").first
+        offset += size
         index += 1
       end
     end

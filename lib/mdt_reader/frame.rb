@@ -5,7 +5,8 @@ module MdtReader
     
     def self.create(offset, stream)
       stream.seek(offset + 4, IO::SEEK_SET)
-      type ||= TYPES[stream.read(2).unpack("v").first]
+      typeindex = stream.read(2).unpack("v").first
+      type ||= get_type_class(typeindex)
       klass = const_get("#{type.to_s.capitalize}")
       klass.new(offset, stream)
     end
@@ -28,6 +29,11 @@ module MdtReader
     end
     
     protected
+    def self.get_type_class(index)
+      return TYPES[index] if TYPES[index]
+      raise ::MdtReader::NotImplementedError, "Undefined type index: #{index}"
+    end
+    
     def rewind_to_body_pos(pos=0)
       @stream.seek(body_offset + pos, IO::SEEK_SET)
       @stream

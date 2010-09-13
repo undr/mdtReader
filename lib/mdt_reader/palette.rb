@@ -9,6 +9,8 @@ module MdtReader
     end
     
     def [](index)
+      #pp index
+      index = 0 if index.nil?
       return @color_cache[index] if @color_cache[index]
       #todo: Вынести две нижние строчки в отдельный метод и написать его на C (НЕ НАДО!!! Так получается медленней)
       sector = index >= 256 ? @last_sector : (index / @sector_length)

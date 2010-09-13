@@ -16,6 +16,8 @@ Gem::Specification.new do |s|
   s.required_rubygems_version = ">= 1.3.6"
   s.add_dependency('png', '>= 1.2.0')
   s.add_dependency('RubyInline', '>= 3.8.4')
+  s.add_dependency('libxml-ruby', '>= 1.1.4')
+  s.add_dependency('gruff', '>= 0.3.6')
   
   s.add_development_dependency(%q<rspec>, ["= 1.3.0"])
   s.add_development_dependency(%q<mocha>, ["= 0.9.8"])

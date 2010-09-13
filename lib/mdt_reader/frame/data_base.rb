@@ -13,7 +13,7 @@ module MdtReader
       end
       
       def size
-        raise NotImplementedError, "It must be implemented in children classes"
+        raise ::MdtReader::NotImplementedError, "It must be implemented in children classes"
       end
       
       def to_a
@@ -30,7 +30,7 @@ module MdtReader
       end
 
       def save_as_png(filename)
-        raise NotImplementedError, "it must be implemented in children classes"
+        raise ::MdtReader::NotImplementedError, "it must be implemented in children classes"
       end
 
       protected  
@@ -42,6 +42,7 @@ module MdtReader
         @data = unpack
         max, min = @data.max, @data.min
         max_minus_min = max - min
+        max_minus_min = 1 if max_minus_min == 0
         @init = true
         @data.collect! do |value|
           (((value - min) * 256) / max_minus_min).floor
