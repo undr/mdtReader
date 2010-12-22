@@ -14,7 +14,7 @@ require "mdt_reader/frame/spectroscopy"
 require "mdt_reader/frame/mda"
 require "mdt_reader/frame/curves"
 require "mdt_reader/palette"
-require "ruby-debug"
+
 
 module MdtReader
   module_function
