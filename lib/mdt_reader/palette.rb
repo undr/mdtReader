@@ -22,8 +22,8 @@ module MdtReader
       @color_cache[index]
     end
     
-    def to_png(options)
-      canvas = PNG::Canvas.new(256, 15)
+    def to_png(w=256, h=15)
+      canvas = PNG::Canvas.new(w, h)
       y = 0
       #todo: Поменять циклы while на 0.upto(num)
       while(y < 15) do
@@ -34,7 +34,7 @@ module MdtReader
         end
         y += 1
       end
-      PNG.new(canvas).save(options[:filename])
+      PNG.new(canvas)
     end
   end
 end

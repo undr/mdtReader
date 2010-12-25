@@ -21,8 +21,8 @@ module MdtReader
         PNG.new canvas
       end
 
-      def save_as_png(filename)
-        to_png.save(filename)
+      def save_as_png(filename, palette=nil)
+        to_png(palette).save(filename)
       end
 
       def width
