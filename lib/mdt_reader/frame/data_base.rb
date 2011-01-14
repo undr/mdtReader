@@ -40,13 +40,8 @@ module MdtReader
       
       def init
         @data = unpack
-        max, min = @data.max, @data.min
-        max_minus_min = max - min
-        max_minus_min = 1 if max_minus_min == 0
         @init = true
-        @data.collect! do |value|
-          (((value - min) * 256) / max_minus_min).floor
-        end if @normalize
+        normalize if @normalize
       end
       
       def unpack
@@ -58,6 +53,58 @@ module MdtReader
 
       def init?
         @init ||= false
+      end
+    end
+  end
+end
+
+module MdtReader
+  class Frame
+    class DataBase
+      require 'inline'
+      inline do |builder|
+
+        builder.c <<-EOC
+VALUE 
+normalize() {
+  long min, max, maxMinusMin, value;
+  VALUE data = rb_iv_get(self, "@data");
+  int size = RARRAY(data)->len;
+  int i;
+  max = NUM2LONG(RARRAY(data)->ptr[0]);
+  min = NUM2LONG(RARRAY(data)->ptr[0]);
+  
+  for (i = 0; i < size; i++) {
+    value = NUM2LONG(RARRAY(data)->ptr[i]);
+    if (value > max) {
+      max = value;
+    } else if (value < min) {
+      min = value;
+    }
+  }
+  maxMinusMin = max - min;
+  
+  if(maxMinusMin == 0) {
+    maxMinusMin = 1;
+  }
+
+  for(i = 0; i < size; i++) {
+    value = NUM2LONG(RARRAY(data)->ptr[i]);
+    RARRAY(data)->ptr[i] = LONG2NUM(((value - min) * 255) / maxMinusMin);
+  }
+  return data;
+}
+EOC
+      end
+    rescue => e
+      pp e
+      def normalize
+        max, min = @data.max, @data.min
+        max_minus_min = max - min
+        max_minus_min = 1 if max_minus_min == 0
+        @data.collect! do |value|
+          (((value - min) * 255) / max_minus_min).floor
+        end
       end
     end
   end

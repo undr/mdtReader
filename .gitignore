@@ -1,5 +1,11 @@
 .DS_Store
 **/.DS_Store
 /lib/test.rb
+/lib/test*.rb
+/lib/bench.rb
+profile*.html
+**/profile*.html
+/mdt_files/*
 .buildpath
 .project
+.loadpath
