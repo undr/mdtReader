@@ -37,19 +37,6 @@ module MdtReader
       def unit_size
         2
       end
-      
-      def init
-        @data = unpack
-        @init = true
-        normalize if @normalize
-      end
-      
-      def unpack
-        raw.unpack("v*").collect do |value|
-          value -= 0x1_0000 if (value & 0x8000).nonzero?
-          value
-        end
-      end
 
       def init?
         @init ||= false
@@ -66,9 +53,13 @@ module MdtReader
 
         builder.c <<-EOC
 VALUE 
-normalize() {
+init() {
   long min, max, maxMinusMin, value;
-  VALUE data = rb_iv_get(self, "@data");
+  ID rawFunc = rb_intern("raw");
+  ID unpackFunc = rb_intern("unpack");
+  VALUE raw = rb_funcall(self, rawFunc, 0);
+  VALUE data = rb_funcall(raw, unpackFunc, 1, rb_str_new2("v*"));
+  
   int size = RARRAY(data)->len;
   int i;
   max = NUM2LONG(RARRAY(data)->ptr[0]);
@@ -76,6 +67,10 @@ normalize() {
   
   for (i = 0; i < size; i++) {
     value = NUM2LONG(RARRAY(data)->ptr[i]);
+    if((value & 0x8000) != 0) {
+      value = value - 0x10000;
+    }
+    
     if (value > max) {
       max = value;
     } else if (value < min) {
@@ -92,12 +87,26 @@ normalize() {
     value = NUM2LONG(RARRAY(data)->ptr[i]);
     RARRAY(data)->ptr[i] = LONG2NUM(((value - min) * 255) / maxMinusMin);
   }
+  rb_iv_set(self, "@data", data);
+  rb_iv_set(self, "@init", Qtrue);
   return data;
 }
 EOC
       end
     rescue => e
-      pp e
+      def init
+        @data = unpack
+        @init = true
+        normalize if @normalize
+      end
+      
+      def unpack
+        raw.unpack("v*").collect do |value|
+          value -= 0x1_0000 if (value & 0x8000).nonzero?
+          value
+        end
+      end
+      
       def normalize
         max, min = @data.max, @data.min
         max_minus_min = max - min
